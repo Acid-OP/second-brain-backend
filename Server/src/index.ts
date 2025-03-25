@@ -15,8 +15,19 @@ import helmet from "helmet";
 dotenv.config();
 
 const app = express();
+
 app.use(express.json());
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(
+  cors({
+    origin: [
+      "https://secondbrain-hazel.vercel.app", // Your production frontend
+      "https://second-brain-backend-beige.vercel.app", // Your backend (for any direct access)
+      "http://localhost:5173", // Local development
+    ], // Safely handles undefined values
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Added PUT/PATCH
+  })
+);
 app.use(helmet());
 
 // Zod Schemas for validation
