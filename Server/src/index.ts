@@ -13,22 +13,36 @@ import dotenv from "dotenv";
 import helmet from "helmet";
 
 dotenv.config();
-
 const app = express();
 
+const allowedOrigins = [
+  "https://secondbrain-hazel.vercel.app",
+  "https://second-brain-backend-beige.vercel.app",
+  "http://localhost:5173"
+]
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
 app.use(express.json());
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
-app.use(
-  cors({
-    origin: [
-      "https://secondbrain-hazel.vercel.app", // Your production frontend
-      "https://second-brain-backend-beige.vercel.app", // Your backend (for any direct access)
-      "http://localhost:5173", // Local development
-    ], // Safely handles undefined values
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Added PUT/PATCH
-  })
-);
 app.use(helmet());
+app.use(cors(corsOptions));
+
+// Add OPTIONS handler for preflight requests
+app.options("*", cors(corsOptions));
 
 // Zod Schemas for validation
 const signupSchema = z.object({
@@ -101,7 +115,7 @@ app.post("/api/v1/signin", async (req, res) => {
   if (existingUser && existingUser.password && typeof existingUser.password === "string") {
     const isPasswordValid = await bcrypt.compare(password, existingUser.password);
     if (isPasswordValid) {
-      const token = Jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET as string);
+      const token = Jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET as string , { expiresIn: "7d" });
       res.json({ token });
     } else {
       res.status(403).json({ message: "Incorrect credentials" });
