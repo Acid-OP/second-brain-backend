@@ -20,6 +20,7 @@ const allowedOrigins = [
   "https://second-brain-backend-beige.vercel.app",
   "http://localhost:5173"
 ]
+
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -75,14 +76,13 @@ const signinSchema = z.object({
 });
 
 // Signup
-// @ts-ignore
 app.post("/api/v1/signup", async (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
 
   const validation = signupSchema.safeParse({ username, password });
   if (!validation.success) {
-    return res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
+    res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
   }
 
   try {
@@ -101,14 +101,13 @@ app.post("/api/v1/signup", async (req, res) => {
 });
 
 // Signin
-// @ts-ignore
 app.post("/api/v1/signin", async (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
 
   const validation = signinSchema.safeParse({ username, password });
   if (!validation.success) {
-    return res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
+    res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
   }
 
   const existingUser = await UserModel.findOne({ username });
@@ -182,7 +181,6 @@ app.post("/api/v1/content", userMiddleware, async (req, res) => {
 });
 
 // Delete Content
-// @ts-ignore
 app.delete("/api/v1/content", userMiddleware, async (req, res) => {
   const { id } = req.body;
   const userId = (req as any).userId;
@@ -190,7 +188,7 @@ app.delete("/api/v1/content", userMiddleware, async (req, res) => {
   try {
     const content = await ContentModel.findOne({ _id: id, userId });
     if (!content) {
-      return res.status(404).json({ error: "Content not found or you don’t have permission." });
+      res.status(404).json({ error: "Content not found or you don’t have permission." });
     }
     await ContentModel.deleteOne({ _id: id, userId });
     res.status(200).json({ message: "Content deleted successfully", _id: id });
@@ -201,7 +199,6 @@ app.delete("/api/v1/content", userMiddleware, async (req, res) => {
 });
 
 // Share Functionality
-// @ts-ignore
 app.post("/api/v1/brain/share", userMiddleware, async (req, res) => {
   const { share } = req.body;
   const userId = (req as any).userId;
@@ -210,12 +207,12 @@ app.post("/api/v1/brain/share", userMiddleware, async (req, res) => {
     const existingLink = await LinkModel.findOne({ userId });
 
     if (share === undefined) {
-      return res.status(400).json({ error: "Missing 'share' parameter" });
+      res.status(400).json({ error: "Missing 'share' parameter" });
     }
 
     if (share) {
       if (existingLink) {
-        return res.status(200).json({
+        res.status(200).json({
           link: `${process.env.FRONTEND_URL}/brain/${existingLink.hash}`,
         });
       }

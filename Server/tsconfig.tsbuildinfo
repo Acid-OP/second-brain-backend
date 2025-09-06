@@ -1,0 +1,1 @@
+{"root":["./src/db.ts","./src/embeddingservice.ts","./src/index.ts","./src/middelware.ts","./src/override.d.ts","./src/qaservice.ts","./src/utils.ts"],"version":"5.8.2"}
