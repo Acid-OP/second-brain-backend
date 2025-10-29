@@ -83,6 +83,7 @@ app.post("/api/v1/signup", async (req, res) => {
   const validation = signupSchema.safeParse({ username, password });
   if (!validation.success) {
     res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
+    return;
   }
 
   try {
@@ -108,6 +109,7 @@ app.post("/api/v1/signin", async (req, res) => {
   const validation = signinSchema.safeParse({ username, password });
   if (!validation.success) {
     res.status(400).json({ message: "Invalid input", errors: validation.error.errors });
+    return;
   }
 
   const existingUser = await UserModel.findOne({ username });
@@ -208,6 +210,7 @@ app.post("/api/v1/brain/share", userMiddleware, async (req, res) => {
 
     if (share === undefined) {
       res.status(400).json({ error: "Missing 'share' parameter" });
+      return;
     }
 
     if (share) {

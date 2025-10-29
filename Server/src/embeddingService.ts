@@ -5,28 +5,43 @@ import dotenv from "dotenv";
 dotenv.config();
 
 let embedder: any;
-(async () => {
-  try {
-    embedder = await pipeline('feature-extraction', process.env.EMBEDDING_MODEL, {
-      quantized: false,
-    });
-  } catch (error) {
-    console.error("Failed to load embedder:", error);
+let embedderPromise: Promise<any> | null = null;
+
+async function getEmbedder() {
+  if (embedder) return embedder;
+  
+  if (!embedderPromise) {
+    embedderPromise = (async () => {
+      try {
+        console.log("[INFO] Loading embedding model...");
+        embedder = await pipeline('feature-extraction', process.env.EMBEDDING_MODEL, {
+          quantized: false,
+        });
+        console.log("[INFO] Embedding model loaded successfully");
+        return embedder;
+      } catch (error) {
+        console.error("[ERROR] Failed to load embedder:", error);
+        embedderPromise = null;
+        throw error;
+      }
+    })();
   }
-})();
+  
+  return embedderPromise;
+}
+
 const client = new ChromaClient({
-  path: process.env.CHROMA_DB_URL , // Fallback for local dev
+  path: process.env.CHROMA_DB_URL,
 });
 
 async function getEmbeddings(text: string): Promise<number[]> {
-  if (!embedder) {
-    throw new Error("Model not yet loaded. Please wait and try again.");
-  }
   try {
-    const embedding = await embedder(text, { pooling: 'mean', normalize: true });
+    const model = await getEmbedder(); // Wait for model to load
+    const embedding = await model(text, { pooling: 'mean', normalize: true });
     const result: number[] = Array.from(embedding.data as Float32Array);
     return result;
   } catch (error) {
+    console.error("[ERROR] Error getting embeddings:", error);
     throw error;
   }
 }
@@ -57,6 +72,7 @@ export async function storeCardEmbeddings(card: {
       }],
     });
   } catch (error) {
+    console.error("[ERROR] Error storing embeddings:", error);
     throw error;
   }
 }
@@ -92,6 +108,7 @@ export async function queryChromaDB(query: string, userId: string): Promise<{
     };
     return bestMatch;
   } catch (error) {
+    console.error("[ERROR] Error querying ChromaDB:", error);
     throw error;
   }
 }
