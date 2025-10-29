@@ -7,6 +7,7 @@ dotenv.config();
 let embedder: any;
 let embedderPromise: Promise<any> | null = null;
 
+// Initialize embedder with a promise we can await
 async function getEmbedder() {
   if (embedder) return embedder;
   
@@ -21,7 +22,7 @@ async function getEmbedder() {
         return embedder;
       } catch (error) {
         console.error("[ERROR] Failed to load embedder:", error);
-        embedderPromise = null;
+        embedderPromise = null; // Reset so it can retry
         throw error;
       }
     })();
@@ -55,9 +56,18 @@ export async function storeCardEmbeddings(card: {
   userId?: string;
 }) {
   try {
+    if (!process.env.CHROMA_DB_URL) {
+      console.warn("[WARN] ChromaDB URL not configured, skipping embedding storage");
+      return;
+    }
+
     const combinedText = `${card.title} ${card.description || ""} ${card.type} ${card.link || ""}`.trim();
     const embedding = await getEmbeddings(combinedText);
-    const collection = await client.getOrCreateCollection({ name: "content_collection" });
+    
+    const collection = await client.getOrCreateCollection({ 
+      name: "content_collection",
+      metadata: { "hnsw:space": "cosine" }
+    });
 
     await collection.upsert({
       ids: [card._id],
@@ -73,7 +83,6 @@ export async function storeCardEmbeddings(card: {
     });
   } catch (error) {
     console.error("[ERROR] Error storing embeddings:", error);
-    throw error;
   }
 }
 
@@ -85,8 +94,32 @@ export async function queryChromaDB(query: string, userId: string): Promise<{
   link: string;
 } | null> {
   try {
+    if (!process.env.CHROMA_DB_URL) {
+      console.warn("[WARN] ChromaDB URL not configured, skipping vector search");
+      return null;
+    }
+
     const queryEmbedding = await getEmbeddings(query);
-    const collection = await client.getOrCreateCollection({ name: "content_collection" });
+    
+    let collection;
+    try {
+      collection = await client.getOrCreateCollection({ 
+        name: "content_collection",
+        metadata: { "hnsw:space": "cosine" }
+      });
+    } catch (collectionError: any) {
+      console.error("[ERROR] Failed to get/create collection:", collectionError);
+      try {
+        await client.deleteCollection({ name: "content_collection" });
+        collection = await client.createCollection({ 
+          name: "content_collection",
+          metadata: { "hnsw:space": "cosine" }
+        });
+      } catch (recreateError) {
+        console.error("[ERROR] Failed to recreate collection:", recreateError);
+        return null;
+      }
+    }
 
     const results = await collection.query({
       queryEmbeddings: [queryEmbedding],
@@ -109,6 +142,6 @@ export async function queryChromaDB(query: string, userId: string): Promise<{
     return bestMatch;
   } catch (error) {
     console.error("[ERROR] Error querying ChromaDB:", error);
-    throw error;
+    return null;
   }
 }
